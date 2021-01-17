@@ -8,9 +8,10 @@ const reg_exp_for_email = /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(
 
 authController.sineUp = async (req, res) => {
   try {
-    const { name, email, password, passwordCheck } = req.body;
+    const { name, email, password, confirmPassword } = req.body;
+    console.log('🚀 ~ file: AuthController.js ~ line 51 ~ authController.login= ~ email', email);
 
-    if (!email || !password || !passwordCheck) {
+    if (!email || !password || !confirmPassword) {
       return res.status(400).json({ message: 'Not all field have been entered' });
     }
     if (!reg_exp_for_email.test(String(email).toLowerCase())) {
@@ -21,7 +22,7 @@ authController.sineUp = async (req, res) => {
         .status(400)
         .json({ message: 'The password need to be at least 6 characters long.' });
     }
-    if (password !== passwordCheck) {
+    if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Enter the save password twice for verification.' });
     }
     const existingUser = await User.findOne({ email }, { email: 1 });
@@ -39,7 +40,14 @@ authController.sineUp = async (req, res) => {
     });
 
     const saveUser = await newUser.save();
-    return res.send(saveUser);
+    const token = jwt.sign({ id: saveUser._id }, process.env.JWT_PASSWORD);
+    return res.send({
+      token,
+      userInfo: {
+        id: saveUser._id,
+        name: saveUser.name,
+      },
+    });
   } catch (error) {
     console.log(error);
     return res.status(400).json({ message: error.message });
@@ -75,7 +83,7 @@ authController.login = async (req, res) => {
       userInfo: {
         id: user._id,
         name: user.name,
-        email: user.email,
+        // email: user.email,
       },
     });
   } catch (error) {
@@ -89,6 +97,20 @@ authController.deleteUser = async (req, res) => {
     const data = await User.findByIdAndDelete(req.userId);
     console.log(data);
     return res.send({ message: 'Your account successfully deleted' });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+authController.isEmailAvailable = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email }, { email: 1 });
+    if (user) {
+      return res.send(true);
+    }
+    return res.send(false);
   } catch (error) {
     console.log(error);
     return res.status(400).json({ message: error.message });
